@@ -61,6 +61,14 @@ const run = async () => {
          * app.patch('/booking/:id') //update specific one booking info
          * app.delete('/booking/:id') //Delete specific one booking 
         */
+
+        app.get('/booking', async (req, res) => {
+            const patient = req.query.patient;
+            const query = { patientEmail: patient };
+            const bookings = await bookingCollection.find(query).toArray();
+            res.send(bookings);
+        });
+
         app.post('/booking', async (req, res) => {
             const bookingInfoDoc = req.body;
             const query = {

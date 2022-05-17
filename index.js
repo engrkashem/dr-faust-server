@@ -30,7 +30,6 @@ const run = async () => {
         //after learning mongodb, use aggregate, lookup, match, group.
         app.get('/available', async (req, res) => {
             const date = req.query.date;
-            console.log(date)
 
             //Step-1: Get all services
             const services = await serviceCollection.find().toArray();

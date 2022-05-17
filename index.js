@@ -26,6 +26,34 @@ const run = async () => {
             res.send(services)
         });
 
+        //this is not the properway to query
+        //after learning mongodb, use aggregate, lookup, match, group.
+        app.get('/available', async (req, res) => {
+            const date = req.query.date;
+            console.log(date)
+
+            //Step-1: Get all services
+            const services = await serviceCollection.find().toArray();
+
+            //step-2: Get Bookings of that day
+            const query = { date: date };
+            const bookings = await bookingCollection.find(query).toArray();
+
+            //step-3: for each service.
+            services.forEach(service => {
+                // find booking for that service. o/p [{},{},..]
+                const bookedService = bookings.filter(b => b.treatmentName === service.name);
+                //find the booked time slots for that service. o/p ['','',...]
+                const bookedSlots = bookedService.map(s => s.timeSlot);
+                //eleminate booked time slots from total time slots for that service. so that get available time slots to alot appointment time slot.
+                const availebleSlots = service.slots.filter(s => !bookedSlots.includes(s));
+                //set the available time slots to that service slots.
+                service.slots = availebleSlots;
+            })
+
+            res.send(services);
+        });
+
         /**
          * API Naming Convension
          * app.get('/booking') //get all bookings in this collection or get more than one or by filter query.

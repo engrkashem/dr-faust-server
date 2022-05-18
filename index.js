@@ -2,6 +2,9 @@ const express = require('express');
 require('dotenv').config();
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const jwt = require('jsonwebtoken');
+
+// to generate secret token: require('crypto').randomBytes(64).toString('hex')
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -18,12 +21,27 @@ const run = async () => {
         await client.connect();
         const serviceCollection = client.db('doctors-portal').collection('services');
         const bookingCollection = client.db('doctors-portal').collection('bookings');
+        const userCollection = client.db('doctors-portal').collection('users');
 
         app.get('/services', async (req, res) => {
             const query = {};
             const cursor = serviceCollection.find(query);
             const services = await cursor.toArray();
             res.send(services)
+        });
+
+        // to add or update user info to database
+        app.put('/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = req.body;
+            const filter = { email: email };
+            const option = { upsert: true }
+            const updatedDoc = {
+                $set: user,
+            };
+            const result = await userCollection.updateOne(filter, updatedDoc, option);
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+            res.send({ result, token });
         });
 
         //this is not the properway to query
@@ -58,7 +76,8 @@ const run = async () => {
          * app.get('/booking') //get all bookings in this collection or get more than one or by filter query.
          * app.get('/booking/:id') //get a specific booking
          * app.post('/booking') //add a new booking
-         * app.patch('/booking/:id') //update specific one booking info
+         * app.patch('/booking/:id') //update specific one booking info.
+         * app.put('/booking/:id') // update a specific one if exist, if not then add that to database. upsert=> update (if exist) or insert (if new info).
          * app.delete('/booking/:id') //Delete specific one booking 
         */
 
@@ -71,6 +90,7 @@ const run = async () => {
 
         app.post('/booking', async (req, res) => {
             const bookingInfoDoc = req.body;
+            //query to cancel request of duplicate appointment
             const query = {
                 treatmentName: bookingInfoDoc.treatmentName,
                 patientEmail: bookingInfoDoc.patientEmail,

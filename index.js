@@ -44,6 +44,22 @@ const run = async () => {
             res.send(services)
         });
 
+        app.get('/user', verifyJWT, async (req, res) => {
+            const result = await userCollection.find().toArray();
+            res.send(result);
+        });
+
+        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const reqSender = req.decoded.email;
+            const filter = { email: email };
+            const updatedDoc = {
+                $set: { role: 'admin' },
+            };
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        });
+
         // to add or update user info to database
         app.put('/user/:email', async (req, res) => {
             const email = req.params.email;

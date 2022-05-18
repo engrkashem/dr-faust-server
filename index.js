@@ -49,15 +49,29 @@ const run = async () => {
             res.send(result);
         });
 
+        app.get('/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = await userCollection.findOne({ email: email });
+            const isAdmin = user.role === 'admin';
+            res.send({ admin: isAdmin });
+        });
+
         app.put('/user/admin/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const reqSender = req.decoded.email;
-            const filter = { email: email };
-            const updatedDoc = {
-                $set: { role: 'admin' },
-            };
-            const result = await userCollection.updateOne(filter, updatedDoc);
-            res.send(result);
+            const reqSenderUser = await userCollection.findOne({ email: reqSender });
+            if (reqSenderUser.role === 'admin') {
+                const filter = { email: email };
+                const updatedDoc = {
+                    $set: { role: 'admin' },
+                };
+                const result = await userCollection.updateOne(filter, updatedDoc);
+                return res.send(result);
+            }
+            else {
+                return res.status(403).send({ message: 'Forbidden Access' });
+            }
+
         });
 
         // to add or update user info to database

@@ -25,7 +25,7 @@ const verifyJWT = async (req, res, next) => {
         req.decoded = decoded;
         next(); //to go further / read rest code after calling function.
     });
-}
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wutyb.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
@@ -36,10 +36,22 @@ const run = async () => {
         const serviceCollection = client.db('doctors-portal').collection('services');
         const bookingCollection = client.db('doctors-portal').collection('bookings');
         const userCollection = client.db('doctors-portal').collection('users');
+        const doctorCollection = client.db('doctors-portal').collection('doctors');
+
+        const verifyAdmin = async (req, res, next) => {
+            const reqSender = req.decoded.email;
+            const reqSenderUser = await userCollection.findOne({ email: reqSender });
+            if (reqSenderUser.role === 'admin') {
+                next();
+            }
+            else {
+                return res.status(403).send({ message: 'Forbidden Access' });
+            }
+        };
 
         app.get('/services', async (req, res) => {
             const query = {};
-            const cursor = serviceCollection.find(query);
+            const cursor = serviceCollection.find(query).project({ name: 1 });
             const services = await cursor.toArray();
             res.send(services)
         });
@@ -56,22 +68,14 @@ const run = async () => {
             res.send({ admin: isAdmin });
         });
 
-        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+        app.put('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
-            const reqSender = req.decoded.email;
-            const reqSenderUser = await userCollection.findOne({ email: reqSender });
-            if (reqSenderUser.role === 'admin') {
-                const filter = { email: email };
-                const updatedDoc = {
-                    $set: { role: 'admin' },
-                };
-                const result = await userCollection.updateOne(filter, updatedDoc);
-                return res.send(result);
-            }
-            else {
-                return res.status(403).send({ message: 'Forbidden Access' });
-            }
-
+            const filter = { email: email };
+            const updatedDoc = {
+                $set: { role: 'admin' },
+            };
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result);
         });
 
         // to add or update user info to database
@@ -151,6 +155,17 @@ const run = async () => {
                 return res.send({ success: false, bookingInfoDoc: exist })
             }
             const result = await bookingCollection.insertOne(bookingInfoDoc);
+            return res.send({ success: true, result });
+        });
+
+        app.post('/doctor', verifyJWT, verifyAdmin, async (req, res) => {
+            const doctor = req.body;
+            const query = { email: doctor.email };
+            const exist = await doctorCollection.findOne(query);
+            if (exist) {
+                return res.send({ success: false, doctor: exist });
+            }
+            const result = await doctorCollection.insertOne(doctor);
             return res.send({ success: true, result });
         });
 
